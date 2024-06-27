@@ -1,0 +1,17 @@
+{
+  "name": "corona-graph-backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^2.6.1",
+    "redis": "^4.6.14"
+  },
+  "description": ""
+}
