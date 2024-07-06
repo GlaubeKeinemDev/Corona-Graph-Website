@@ -1,5 +1,5 @@
 # Frontend Dockerfile
-FROM node:14
+FROM node:18
 
 # Arbeitsverzeichnis setzen
 WORKDIR /app
@@ -12,13 +12,13 @@ RUN npm install
 COPY . .
 
 # Build durchführen
-RUN npm run build
+#RUN npm run build
 
 # Einfacher Webserver für das statische Build
-RUN npm install -g serve
+#RUN npm install -g serve
 
 # Port freigeben
-EXPOSE 5000
+EXPOSE 5173
 
 # Startbefehl
-CMD ["serve", "-s", "build"]
+CMD ["npm", "run", "dev", "--", "--host"]
