@@ -1,78 +1,170 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const redis = require('redis');
+const cors = require('cors');
 
 const client = redis.createClient({
-   url: `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
+    url: `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
 });
 
 client.on('error', (err) => {
-   console.log("Redis Fehler: ", err);
+    console.log("Redis Fehler: ", err);
 })
 
 client.connect().catch(console.error);
 
 const app = express();
+app.use(cors());
 
 app.get('/api/data', async (req, res) => {
-   try {
-      const cacheData = await client.get('covid-data');
-
-      if (cacheData) {
-         console.log("Redis cache daten zurückgegeben");
-         return res.json(JSON.parse(cacheData));
-      }
-
-      const casesResponse = await fetch('https://api.corona-zahlen.org/germany/history/cases');
-      const casesData = await casesResponse.json();
-
-      const incidenceResponse = await fetch('https://api.corona-zahlen.org/germany/history/incidence');
-      const incidenceData = await incidenceResponse.json();
-
-      const deathsResponse = await fetch('https://api.corona-zahlen.org/germany/history/deaths');
-      const deathsData = await deathsResponse.json();
-
-      const finalData = formatData(casesData.data, incidenceData.data, deathsData.data);
-
-      await client.set('covid-data', JSON.stringify(finalData),  { EX: 3600 }); // Cache für 3 Stunden
-      console.log("Daten abgerufen von API");
-      res.json(finalData);
-   } catch (error) {
-      console.log("Fehler: ", error);
-      res.status(500).send("Interner Serverfehler");
-   }
-});
-app.listen(3000,  () => {
-   console.log("Server läuft")
+    try {
+        const finalData = await getGeneralCovidData();
+        console.log("Daten abgerufen von API");
+        res.json(finalData);
+    } catch (error) {
+        console.log("Fehler: ", error);
+        res.status(500).send("Interner Serverfehler");
+    }
 });
 
-function formatData(caseData, incidenceData, deathData) {
-   const map = new Map();
+app.get('/api/data/:limit', async (req, res) => {
+    try {
+        let limit = parseInt(req.params.limit);
 
-   /* Cases */
-   caseData.forEach(entries => {
-      if(!map.has(entries.date)) {
-         map.set(entries.date, { date: entries.date, cases: null, deaths: null, incidence: 0});
-      }
-      console.log(entries);
-      map.get(entries.date).cases = entries.cases;
-   });
+        const generalData = await getGeneralCovidData();
 
-   /* incidences */
-   incidenceData.forEach(entries => {
-      if(!map.has(entries.date)) {
-         map.set(entries.date, { date: entries.date, cases: null, deaths: null, incidence: 0});
-      }
-      map.get(entries.date).incidence = entries.weekIncidence;
-   });
+        if(isNaN(limit) || limit <= 0 || (limit !== 7 && limit !== 30
+            && limit !== 90 && limit !== 2020 && limit !== 2021 && limit !== 2022 && limit !== 2023 && limit !== 2024)) {
+            res.json(generalData);
+            return;
+        }
 
-   /* Deaths */
-   deathData.forEach(entries => {
-      if(!map.has(entries.date)) {
-         map.set(entries.date, { date: entries.date, cases: null, deaths: null, incidence: 0});
-      }
-      map.get(entries.date).deaths = entries.deaths;
-   });
+        const filteredData = await filterData(generalData, limit);
+        res.json(filteredData);
+    } catch (error) {
+        console.log("Fehler: ", error);
+        res.status(500).send("Interner Serverfehler");
+    }
+});
+app.listen(3000, () => {
+    console.log("Server läuft");
+});
 
-   return Array.from(map.values());
+async function getGeneralCovidData() {
+    const cacheData = await client.get('data:all');
+
+    if (cacheData) {
+        console.log("Redis cache daten zurückgegeben");
+        return JSON.parse(cacheData);
+    }
+
+    const casesResponse = await fetch('https://api.corona-zahlen.org/germany/history/cases');
+    const casesData = await casesResponse.json();
+
+    const incidenceResponse = await fetch('https://api.corona-zahlen.org/germany/history/incidence');
+    const incidenceData = await incidenceResponse.json();
+
+    const deathsResponse = await fetch('https://api.corona-zahlen.org/germany/history/deaths');
+    const deathsData = await deathsResponse.json();
+
+    const recoveredResponse = await fetch('https://api.corona-zahlen.org/germany/history/recovered');
+    const recoveredData = await recoveredResponse.json();
+
+    const finalData = formatData(casesData.data, incidenceData.data, deathsData.data, recoveredData.data);
+
+    await client.set('data:all', JSON.stringify(finalData), {EX: 3600 * 3});
+
+    return finalData;
+}
+
+function parseDateString(dateString) {
+    const [day, month, year] = dateString.split('.');
+    return new Date(`${year}-${month}-${day}T00:00:00Z`);
+}
+
+async function filterData(data, limit) {
+    const cacheData = await client.get('data:' + limit);
+
+    if (cacheData) {
+        console.log("Redis cache daten zurückgegeben");
+        return JSON.parse(cacheData);
+    }
+
+    let filteredData = [];
+
+    if(limit === 7 || limit === 30 || limit === 90) {
+        const currentDate = new Date();
+        let targetDate = new Date();
+        targetDate.setDate(currentDate.getDate() - limit);
+
+        filteredData = data.filter(item => {
+            const itemDate = parseDateString(item.date);
+            return itemDate >= targetDate;
+        });
+    } else {
+        filteredData = data.filter(item => {
+           const itemDate = parseDateString(item.date);
+           return itemDate.getFullYear() === limit;
+        });
+    }
+
+    await client.set('data:' + limit, JSON.stringify(filteredData), {EX: 3600 * 3});
+
+    return filteredData;
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('de-DE', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+}
+
+function getPlainObject(date) {
+    return {date: date, cases: null, deaths: null, incidence: 0, recovered: null};
+}
+
+function formatData(caseData, incidenceData, deathData, recoveredData) {
+    const map = new Map();
+
+    /* Cases */
+    caseData.forEach(entries => {
+        if (!map.has(entries.date)) {
+            map.set(entries.date, getPlainObject(entries.date));
+        }
+        map.get(entries.date).cases = entries.cases;
+    });
+
+    /* incidences */
+    incidenceData.forEach(entries => {
+        if (!map.has(entries.date)) {
+            map.set(entries.date, getPlainObject(entries.date));
+        }
+        map.get(entries.date).incidence = entries.weekIncidence;
+    });
+
+    /* Deaths */
+    deathData.forEach(entries => {
+        if (!map.has(entries.date)) {
+            map.set(entries.date, getPlainObject(entries.date));
+        }
+        map.get(entries.date).deaths = entries.deaths;
+    });
+
+    /* Recovered */
+    recoveredData.forEach(entries => {
+        if (!map.has(entries.date)) {
+            map.set(entries.date, getPlainObject(entries.date));
+        }
+        map.get(entries.date).recovered = entries.recovered;
+    });
+
+    /* Change date format */
+    map.forEach((value, key) => {
+        value.date = formatDate(value.date);
+    });
+
+    return Array.from(map.values());
 }
