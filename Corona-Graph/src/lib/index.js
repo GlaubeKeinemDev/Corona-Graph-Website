@@ -30,7 +30,7 @@ export async function createChart(chartId, labels, dataSets){
                 zoom: {
                     pan: {
                         enabled: true,
-                        mode: 'xy'
+                        mode: 'x'
                     },
                     zoom: {
                         wheel: {
@@ -39,8 +39,11 @@ export async function createChart(chartId, labels, dataSets){
                         pinch: {
                             enabled: true
                         },
-                        mode: 'xy'
+                        mode: 'x'
                     }
+                },
+                legend: {
+                    display: false
                 }
             }
         }
