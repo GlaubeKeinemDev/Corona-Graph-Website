@@ -70,7 +70,13 @@ async function getGeneralCovidData() {
     const recoveredResponse = await fetch('https://api.corona-zahlen.org/germany/history/recovered');
     const recoveredData = await recoveredResponse.json();
 
-    const finalData = formatData(casesData.data, incidenceData.data, deathsData.data, recoveredData.data);
+    const vaccinationResponse = await fetch('https://api.corona-zahlen.org/vaccinations/history');
+    const vaccinationData = await vaccinationResponse.json();
+
+    const rValueResponse = await fetch('https://api.corona-zahlen.org/germany/history/rValue/');
+    const rValueData = await rValueResponse.json();
+
+    const finalData = formatData(casesData.data, incidenceData.data, deathsData.data, recoveredData.data, vaccinationData.data.history, rValueData.data);
 
     await client.set('data:all', JSON.stringify(finalData), {EX: 3600 * 3});
 
@@ -123,10 +129,10 @@ function formatDate(dateString) {
 }
 
 function getPlainObject(date) {
-    return {date: date, cases: null, deaths: null, incidence: 0, recovered: null};
+    return {date: date, cases: null, deaths: null, incidence: 0, recovered: null, vaccinations: 0, rvalue: 0.00};
 }
 
-function formatData(caseData, incidenceData, deathData, recoveredData) {
+function formatData(caseData, incidenceData, deathData, recoveredData, vaccinationData, rValueData) {
     const map = new Map();
 
     /* Cases */
@@ -159,6 +165,22 @@ function formatData(caseData, incidenceData, deathData, recoveredData) {
             map.set(entries.date, getPlainObject(entries.date));
         }
         map.get(entries.date).recovered = entries.recovered;
+    });
+
+    /* Vaccinations */
+    vaccinationData.forEach(entries => {
+        if (!map.has(entries.date)) {
+            map.set(entries.date, getPlainObject(entries.date));
+        }
+        map.get(entries.date).vaccinations = entries.totalVacciantionOfTheDay;
+    });
+
+    /* rValue */
+    rValueData.forEach(entries => {
+        if (!map.has(entries.date)) {
+            map.set(entries.date, getPlainObject(entries.date));
+        }
+        map.get(entries.date).rvalue = entries.rValue7Days;
     });
 
     /* Change date format */
