@@ -22,7 +22,7 @@
     }
 
     async function fetchAllData() {
-        const response = await fetch('http://localhost:3000/api/alldata');
+        const response = await fetch('http://localhost:3000/api/overall');
         return response.json();
     }
 
@@ -40,7 +40,7 @@
         if(selectedTime > 0 && selectedTime < 90)
             point = 2;
 
-        chart = await createChart('covidchart', selectedChartType, false, false, 'top', true, data.map(row => row.date), [
+        chart = await createChart('covidchart', selectedChartType, false, false, 'top', true, true, data.map(row => row.date), [
             {
                 label: selectedName,
                 data: data.map(row => row[selectedData]),
@@ -54,7 +54,7 @@
 
     onMount(async () => {
         const data = await fetchData();
-        await createChart('vaccination_chart', 'line', false, true, 'right', true, data.map(row => row.date), [
+        await createChart('vaccination_chart', 'line', false, true, 'right', true, true, data.map(row => row.date), [
             {
                 label: 'Fallzahlen',
                 data: data.map(row => row.cases),
@@ -76,20 +76,27 @@
         await generateCurrentChart();
 
         const overallData = await fetchAllData();
-        console.log("13213")
-        console.log(overallData);
-        await createChart('overall_chart', 'pie', false, true, 'right', false, Object.keys(overallData),[
+        await createChart('overall_chart', 'pie', false, true, 'top', false, false, ["Fälle", "Tode", "Genesen", "Impfungen"], [
             {
                 label: 'Zahlen',
-                data: [overallData.cases, overallData.deaths],
+                data: [overallData.cases, overallData.deaths, overallData.recovered, overallData.vaccinations],
                 backgroundColor: [
-                    'rgb(255, 99, 132)',
-                    'rgb(54, 162, 235)',
-                    'rgb(255, 205, 86)'
+                    'rgba(255, 99, 132, 0.2)',  // Fälle
+                    'rgba(54, 162, 235, 0.4)',  // Todesfälle
+                    'rgba(75, 192, 192, 0.2)',  // Genesungen
+                    'rgba(255, 206, 86, 0.2)'   // Geimpft
                 ],
+                borderColor: [
+                    'rgba(255, 99, 132, 1)',    // Fälle
+                    'rgba(54, 162, 235, 1)',    // Todesfälle
+                    'rgba(75, 192, 192, 1)',    // Genesungen
+                    'rgba(255, 206, 86, 1)'     // Geimpft
+                ],
+                borderWidth: 1,
                 hoverOffset: 4
             }
         ]);
+
 
         document.getElementById('data_select').addEventListener('change', function (e) {
             const selectedOption = this.options[this.selectedIndex];

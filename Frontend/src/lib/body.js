@@ -55,7 +55,10 @@ export let bodyContent = `
             <canvas id="vaccination_chart"></canvas>
             </div>
             
-            <div class="col-12">
+            <div class="text-center mt-5 mb-3 col-12">
+                    <span>Zusammenfassung</span>
+            </div>
+            <div class="mx-auto col-6">
             <canvas id="overall_chart"></canvas>
             </div>
         </div>

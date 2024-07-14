@@ -4,22 +4,27 @@ const redis = require('redis');
 const cors = require('cors');
 
 const client = redis.createClient({
-    url: `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
+    url: `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`,
+    socket: {
+        connectTimeout: 10000
+    }
 });
 
 client.on('error', (err) => {
     console.log("Redis Fehler: ", err);
 })
 
-client.connect().catch(console.error);
+client.connect().then(() => {
+   console.log("Verbindung zum Redis Server aufgebaut!");
+});
 
 const app = express();
 app.use(cors());
 
 app.get('/api/data', async (req, res) => {
     try {
+        console.log("Abfrage eingegangen! (/api/data)");
         const finalData = await getGeneralCovidData();
-        console.log("Daten abgerufen von API");
         res.json(finalData);
     } catch (error) {
         console.log("Fehler: ", error);
@@ -29,6 +34,7 @@ app.get('/api/data', async (req, res) => {
 
 app.get('/api/data/:limit', async (req, res) => {
     try {
+        console.log("Abfrage eingegangen! (/api/data/:limit)");
         let limit = parseInt(req.params.limit);
 
         const generalData = await getGeneralCovidData();
@@ -47,13 +53,15 @@ app.get('/api/data/:limit', async (req, res) => {
     }
 });
 
-app.get('/api/alldata', async (req, res) => {
+app.get('/api/overall', async (req, res) => {
     try {
+        console.log("Abfrage eingegangen! (/api/overall)");
         const cacheData = await client.get('data:overall');
 
         if (cacheData) {
-            console.log("Redis cache daten zurückgegeben");
-            return JSON.parse(cacheData);
+            console.log("Daten von Redis Cache zurückgegeben! (api/overall)");
+            res.json(JSON.parse(cacheData));
+            return;
         }
 
         const generalDataResponse = await fetch('https://api.corona-zahlen.org/germany');
@@ -67,6 +75,7 @@ app.get('/api/alldata', async (req, res) => {
 
         await client.set('data:overall', JSON.stringify(finalData), {EX: 3600 * 3});
         res.json(finalData);
+        console.log("Anfrage ohne Cache verarbeitet! (api/overall)");
     } catch (error) {
         console.log("Fehler: ", error);
         res.status(500).send("Interner Serverfehler");
