@@ -39,7 +39,7 @@ This project uses the data from this [API](https://api.corona-zahlen.org/docs/) 
 
    ```bash
    git clone https://github.com/GlaubeKeinemDev/Corona-Graph-Website.git
-   cd Corona-Graph-Website
+   cd Frontend-Website
    ```
 2. **Build the repository:**
 

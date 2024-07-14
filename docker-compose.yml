@@ -3,7 +3,7 @@ version: '3.8'
 services:
   backend:
     build:
-      context: ./Corona-Graph-Backend
+      context: Backend
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
@@ -15,12 +15,12 @@ services:
 
   frontend:
     build:
-      context: ./Corona-Graph
+      context: Frontend
       dockerfile: Dockerfile
     ports:
       - "5173:5173"
     volumes:
-      - ./Corona-Graph:/app
+      - ./Frontend:/app
       - /app/node_modules
     environment:
       - CHOKIDAR_USEPOLLING=true
