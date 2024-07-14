@@ -81,6 +81,55 @@ app.get('/api/overall', async (req, res) => {
         res.status(500).send("Interner Serverfehler");
     }
 });
+app.use((req, res, next) => {
+    app._router.stack.forEach((middleware) => {
+        if (middleware.route) {
+            console.log(middleware.route);
+        }
+    });
+    next();
+});
+
+app.get('/', (req, res) => {
+    const routes = app._router.stack
+        .filter((r) => r.route && r.route.path)
+        .map((r) => r.route.path);
+
+    let responseText = `<style>
+    div {
+        max-width: 400px; 
+        width: 100%; 
+        display: flex; 
+        margin-left: auto; 
+        margin-right: auto;
+        background: linear-gradient(135deg, #93e2bb 0%, #93e5f8 100%);
+        border-radius: 25px; 
+        padding: 20px; 
+        flex-direction: column;
+        text-align: center; 
+        font-family: monospace;
+        }
+        li {
+        list-style: none;
+        }
+        </style>`;
+    responseText += '<div>';
+    responseText += '<h1>Landing page</h1>';
+    responseText += '<h2>If you see this text then be happy. The installation was successful</h2>';
+    responseText += '<h3>API-Endpoints:</h3>';
+    responseText += '<ul>';
+    routes.forEach((route) => {
+        if(route !== '/') {
+            responseText += `<li><a href="${route}">${route}</a></li>`;
+        }
+    });
+    responseText += '</ul>';
+    responseText += `<span>Even if there is no secret data, this site and url should not be accessible from
+        outside of your network. Make sure to block this port in your firewall.</span>`;
+    responseText += '</div>';
+
+    res.send(responseText);
+});
 
 app.listen(3000, () => {
     console.log("Server läuft");
