@@ -2,7 +2,7 @@
 import { Chart, registerables } from 'chart.js';
 Chart.register(...registerables);
 
-export async function createChart(chartId, labels, dataSets){
+export async function createChart(chartId, chartType, beginAtZero, displaylegend, legendPosition, zoom, labels, dataSets){
     if(typeof window !== "undefined") {
         const zoomPlugin = await import('chartjs-plugin-zoom');
         Chart.register(zoomPlugin.default);
@@ -11,39 +11,52 @@ export async function createChart(chartId, labels, dataSets){
     const ctx = document.getElementById(chartId).getContext('2d');
 
     return new Chart(ctx, {
-        type: 'line',
+        type: chartType,
         data: {
             labels: labels,
             datasets: dataSets
         },
         options: {
+            interaction: {
+                mode: 'nearest'
+            },
+            animations: {
+                tension: {
+                    duration: 1000,
+                    easing: 'linear',
+                    from: 1,
+                    to: 0,
+                    loop: false
+                }
+            },
             responsive: true,
             scales: {
                 x: {
-                    beginAtZero: true
+                    beginAtZero: beginAtZero,
                 },
                 y: {
-                    beginAtZero: true
+                    beginAtZero: beginAtZero
                 }
             },
             plugins: {
                 zoom: {
                     pan: {
-                        enabled: true,
+                        enabled: zoom,
                         mode: 'x'
                     },
                     zoom: {
                         wheel: {
-                            enabled: true
+                            enabled: zoom
                         },
                         pinch: {
-                            enabled: true
+                            enabled: zoom
                         },
                         mode: 'x'
                     }
                 },
                 legend: {
-                    display: false
+                    display: displaylegend,
+                    position: legendPosition
                 }
             }
         }

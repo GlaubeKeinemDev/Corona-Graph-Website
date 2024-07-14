@@ -46,6 +46,33 @@ app.get('/api/data/:limit', async (req, res) => {
         res.status(500).send("Interner Serverfehler");
     }
 });
+
+app.get('/api/alldata', async (req, res) => {
+    try {
+        const cacheData = await client.get('data:overall');
+
+        if (cacheData) {
+            console.log("Redis cache daten zurückgegeben");
+            return JSON.parse(cacheData);
+        }
+
+        const generalDataResponse = await fetch('https://api.corona-zahlen.org/germany');
+        const generalData = await generalDataResponse.json();
+
+        const vaccinationResponse = await fetch('https://api.corona-zahlen.org/vaccinations/');
+        const vaccinationData = await vaccinationResponse.json();
+
+        const finalData =
+            {cases: generalData.cases, deaths: generalData.deaths, recovered: generalData.recovered, vaccinations: vaccinationData.data.vaccinated}
+
+        await client.set('data:overall', JSON.stringify(finalData), {EX: 3600 * 3});
+        res.json(finalData);
+    } catch (error) {
+        console.log("Fehler: ", error);
+        res.status(500).send("Interner Serverfehler");
+    }
+});
+
 app.listen(3000, () => {
     console.log("Server läuft");
 });
@@ -172,7 +199,8 @@ function formatData(caseData, incidenceData, deathData, recoveredData, vaccinati
         if (!map.has(entries.date)) {
             map.set(entries.date, getPlainObject(entries.date));
         }
-        map.get(entries.date).vaccinations = entries.totalVacciantionOfTheDay;
+        //map.get(entries.date).vaccinations = entries.totalVacciantionOfTheDay;
+        map.get(entries.date).vaccinations = entries.vaccinated;
     });
 
     /* rValue */
